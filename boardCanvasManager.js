@@ -27,6 +27,8 @@ const chessPieceSpriteLocations = {
 var BoardManager = function() {
     // State variables:
     var chessBoard = ChessStateManager();
+    var selectedPiecePosition = null;
+    var availableMoves = [];
 
     var canvas = document.getElementById('boardgameCanvas'),
         context = canvas.getContext('2d');
@@ -39,7 +41,7 @@ var BoardManager = function() {
     spriteSheet.src = "assets/ChessPieces.png";
     spriteSheet.onload = function () {
         console.log('Image loaded !');
-        drawChessPieces(initChessPiecePositions);
+        drawChessboard();
     }
     
     function clearBoard() {
@@ -58,6 +60,15 @@ var BoardManager = function() {
 
     }
 
+    function drawHighlightedSquares(coords, fillColor='#FF7777') {
+        coords.forEach(([row, col]) => {
+            let x = col * cellWidth;
+            let y = row * cellHeight;
+            context.fillStyle = fillColor;
+            context.fillRect(x, y, cellWidth, cellHeight);
+        });
+    }
+
     function drawChessPieces(chessPieceLookup) {
         const chessPiecePositions = chessBoard.getChessPiecePositionsFromLookup(chessPieceLookup);
         chessPiecePositions.forEach(([row, col, color, piece]) => {
@@ -72,19 +83,62 @@ var BoardManager = function() {
     }
 
     function drawChessboard() {
-        drawChessboardStateless(chessBoard.getChessPieceLookup());
+        drawChessboardStateless(chessBoard.getChessPieceLookup(), selectedPiecePosition, availableMoves);
     }
 
-    function drawChessboardStateless(currentState) {
+    function drawChessboardStateless(currentState, selectedPiecePosition=null, availableMoves=[]) {
         clearBoard();
         drawChessBoardSquares();
+        if (selectedPiecePosition) drawHighlightedSquares([selectedPiecePosition], '#77FF77'); 
+        if (availableMoves.length > 0) drawHighlightedSquares(availableMoves, '#FF7777');
         drawChessPieces(currentState);
+
+        document.getElementById('playerTurn').innerHTML = chessBoard.getPlayerTurn();
     }
+
 
     function initialize() {
         chessPieceLookup = chessBoard.initialize();
         drawChessboard();
+        
+        canvas.addEventListener('click', canvasClickListener);
+
         return chessPieceLookup;
+    }
+
+    function mouseCoordsToBoardCoords(mouseX, mouseY) {
+        const row = Math.floor(mouseY / cellHeight);
+        const col = Math.floor(mouseX / cellWidth);
+        return [row, col];
+    }
+
+    function canvasClickListener(event) {
+        console.log(`Clicked at (${event.offsetX}, ${event.offsetY})`);
+        let [row, col] = mouseCoordsToBoardCoords(event.offsetX, event.offsetY);
+        let chessPieceLookup = chessBoard.getChessPieceLookup();
+
+        // User has clicked on an available move, so do the move.
+        if (selectedPiecePosition && availableMoves.filter(([r, c]) => r === row && c === col).length > 0) {
+            console.log(`Moving piece from (${selectedPiecePosition[0]}, ${selectedPiecePosition[1]}) to (${row}, ${col})`);
+            chessPieceLookup = movePiece(selectedPiecePosition[0], selectedPiecePosition[1], row, col);
+            selectedPiecePosition = null;
+            availableMoves = [];
+            drawChessboard();
+            return;
+        } else if(chessPieceLookup[row][col] && chessPieceLookup[row][col][0] === chessBoard.getPlayerTurn()) {
+            console.log(`Clicked on ${chessPieceLookup[row][col][0]} ${chessPieceLookup[row][col][1]} at (${row}, ${col})`);
+            let validMoves = getValidMoves(row, col);
+            console.log(`Valid moves: ${validMoves}`);
+
+            selectedPiecePosition = [row, col];
+            availableMoves = chessBoard.getValidMoves(row, col);
+            drawChessboard();
+        } else {
+            selectedPiecePosition = null;
+            availableMoves = [];
+            drawChessboard();
+            return; 
+        }
     }
 
     function movePiece(startRow, startCol, endRow, endCol) {
