@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chess</title>
+  <link rel="stylesheet" type="text/css" href="styles.css">
+</head>
+<body>
+    <h1>Chess</h1>
+    <div id="playerTurnDisplay">
+        player turn: <span id="playerTurn"></span>
+    </div>
+  <canvas id="boardgameCanvas" width="400" height="400"></canvas>
+  <br/>
+  <label for="moveStr"> Enter move (format: row1,col1,row2,col2)</label>
+  <input type="text" id="moveStr"></textbox>
+  <input type="button" id="moveButton" value="Move!">
+  <div id="messageArea">
+    <span id="message"></span>
+  </div>
+  <script src="chessStateManager.js"></script>
+  <script src="boardCanvasManager.js"></script>
+  <script src="gameManager.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
