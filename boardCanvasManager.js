@@ -69,8 +69,8 @@ var BoardManager = function() {
         });
     }
 
-    function drawChessPieces(chessPieceLookup) {
-        const chessPiecePositions = chessBoard.getChessPiecePositionsFromLookup(chessPieceLookup);
+    function drawChessPieces(currentState) {
+        const chessPiecePositions = currentState.getChessPiecePositions();
         chessPiecePositions.forEach(([row, col, color, piece]) => {
             let [spriteRow, spriteCol] = chessPieceSpriteLocations[color][piece];
             const spriteX = spriteCol * spriteWidth;
@@ -83,7 +83,7 @@ var BoardManager = function() {
     }
 
     function drawChessboard() {
-        drawChessboardStateless(chessBoard.getChessPieceLookup(), selectedPiecePosition, availableMoves);
+        drawChessboardStateless(chessBoard.getChessBoardState(), selectedPiecePosition, availableMoves);
     }
 
     function drawChessboardStateless(currentState, selectedPiecePosition=null, availableMoves=[]) {
@@ -112,37 +112,56 @@ var BoardManager = function() {
         return [row, col];
     }
 
+    function userClickedOwnPiece(row, col) {
+        let chessPieceLookup = chessBoard.getChessPieceLookup();
+        return chessPieceLookup[row][col] && (chessPieceLookup[row][col][0] === chessBoard.getPlayerTurn());
+    }
+
+    function userClickedAvailableMove(row, col) {
+        return selectedPiecePosition && availableMoves.filter(([r, c]) => r === row && c === col).length > 0;
+    }
+
     function canvasClickListener(event) {
         console.log(`Clicked at (${event.offsetX}, ${event.offsetY})`);
         let [row, col] = mouseCoordsToBoardCoords(event.offsetX, event.offsetY);
-        let chessPieceLookup = chessBoard.getChessPieceLookup();
 
-        // User has clicked on an available move, so do the move.
-        if (selectedPiecePosition && availableMoves.filter(([r, c]) => r === row && c === col).length > 0) {
-            console.log(`Moving piece from (${selectedPiecePosition[0]}, ${selectedPiecePosition[1]}) to (${row}, ${col})`);
-            chessPieceLookup = movePiece(selectedPiecePosition[0], selectedPiecePosition[1], row, col);
-            selectedPiecePosition = null;
-            availableMoves = [];
-            drawChessboard();
-            return;
-        } else if(chessPieceLookup[row][col] && chessPieceLookup[row][col][0] === chessBoard.getPlayerTurn()) {
-            console.log(`Clicked on ${chessPieceLookup[row][col][0]} ${chessPieceLookup[row][col][1]} at (${row}, ${col})`);
-            let validMoves = getValidMoves(row, col);
-            console.log(`Valid moves: ${validMoves}`);
-
-            selectedPiecePosition = [row, col];
-            availableMoves = chessBoard.getValidMoves(row, col);
-            drawChessboard();
+        if (userClickedAvailableMove(row, col)) {
+            movePiece(selectedPiecePosition[0], selectedPiecePosition[1], row, col);
+        } else if(userClickedOwnPiece(row, col)) {
+            showValidMovesForPiece(row, col);
         } else {
+            clearSelection();
+            /*
             selectedPiecePosition = null;
             availableMoves = [];
             drawChessboard();
             return; 
+            */
         }
     }
 
+    function showValidMovesForPiece(row, col) {
+        let chessPieceLookup = chessBoard.getChessPieceLookup();
+        console.log(`Clicked on ${chessPieceLookup[row][col][0]} ${chessPieceLookup[row][col][1]} at (${row}, ${col})`);
+        selectedPiecePosition = [row, col];
+        availableMoves = getValidMoves(row, col);
+        console.log(`Valid moves: ${availableMoves}`);
+        drawChessboard(); 
+    }
+
+
     function movePiece(startRow, startCol, endRow, endCol) {
-        return chessBoard.movePiece(startRow, startCol, endRow, endCol);
+        console.log(`Moving piece from (${startRow}, ${startCol}) to (${endRow}, ${endCol})`);
+        chessBoard.movePiece(startRow, startCol, endRow, endCol);
+        selectedPiecePosition = null;
+        availableMoves = [];
+        drawChessboard();
+    }
+
+    function clearSelection() {
+        selectedPiecePosition = null;
+        availableMoves = [];
+        drawChessboard();
     }
 
     function movePieceStateless(currentState, startRow, startCol, endRow, endCol) {

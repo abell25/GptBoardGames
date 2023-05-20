@@ -35,15 +35,17 @@ const initChessPiecePositions = [
     [6, 7, 'black', 'pawn'],
   ];
 
-var ChessStateManager = function() {
+var ChessBoardState = function(chessPieceLookupState=null, playerTurnState='white') {
     // State variables:
-    var chessPiecePositions = initChessPiecePositions.map(x => x);
-    var chessPieceLookup = Array.from(Array(8), () => Array(8).fill(''));
-    chessPiecePositions.forEach(([row, col, color, piece]) => {
-        chessPieceLookup[row][col] = [color, piece];
-    });
-    var playerTurn = 'white';
-
+    var playerTurn = playerTurnState;
+    var chessPieceLookup = chessPieceLookupState;
+    // if null, initialize chessPieceLookup with starting board positions
+    if (chessPieceLookup === null) {
+        chessPieceLookup = Array.from(Array(8), () => Array(8).fill(''));
+        initChessPiecePositions.forEach(([row, col, color, piece]) => {
+            chessPieceLookup[row][col] = [color, piece];
+        });
+    }
     
     function getChessPiecePositionsFromLookup(chessPieceLookup) {
         currentPieces = [];
@@ -57,17 +59,52 @@ var ChessStateManager = function() {
         return currentPieces;
     }
 
+    function getChessPieceLookup() { return chessPieceLookup; }
+    function getPlayerTurn() { return playerTurn; }
+    function setPlayerTurn(newPlayerTurn) { playerTurn = newPlayerTurn; }
+    function changePlayerTurn() { playerTurn = playerTurn === 'white' ? 'black' : 'white'; }
+    function getChessPiecePositions() { return getChessPiecePositionsFromLookup(chessPieceLookup); }
+    function positionHasPiece(row, col) { return chessPieceLookup[row][col] !== ''; }
+    function deepCopyBoardState() {
+        let chessPieceLookupCopy = JSON.parse(JSON.stringify(chessPieceLookup));
+        let playerTurnCopy = playerTurn;
+        return ChessBoardState(chessPieceLookupCopy, playerTurnCopy);
+    }
+    return {
+        getChessPieceLookup: getChessPieceLookup,
+        getChessPiecePositions: getChessPiecePositions, 
+        getPlayerTurn: getPlayerTurn,
+        setPlayerTurn: setPlayerTurn,
+        changePlayerTurn: changePlayerTurn,
+        positionHasPiece: positionHasPiece,
+        deepCopyBoardState: deepCopyBoardState,
+    }
+}
+
+var ChessStateManager = function() {
+    /*
+    // State variables:
+    var chessPiecePositions = initChessPiecePositions.map(x => x);
+    var chessPieceLookup = Array.from(Array(8), () => Array(8).fill(''));
+    chessPiecePositions.forEach(([row, col, color, piece]) => {
+        chessPieceLookup[row][col] = [color, piece];
+    });
+    var playerTurn = 'white';
+    */
+   var chessBoardState = ChessBoardState();
 
     function initialize() {
-        return chessPieceLookup;
+        return chessBoardState;
     }
 
 
-    function isValidMove(startRow, startCol, endRow, endCol) {
+    function isValidMove(currentChessBoardState, startRow, startCol, endRow, endCol) {
         if (!isOnBoard(startRow, startCol)) return false;
         if (!isOnBoard(endRow, endCol)) return false;
         if (!positionHasPiece(startRow, startCol)) return false;
+        let chessPieceLookup = currentChessBoardState.getChessPieceLookup();
         let [color, piece] = chessPieceLookup[startRow][startCol];
+        let playerTurn = currentChessBoardState.getPlayerTurn();
         if (color !== playerTurn) return false;
         if (positionHasPiece(endRow, endCol)) {
             let [endColor, endPiece] = chessPieceLookup[endRow][endCol];
@@ -75,65 +112,74 @@ var ChessStateManager = function() {
         }
         let validMoves = getValidMoves(startRow, startCol);
         if (validMoves.filter(([r, c]) => r === endRow && c === endCol).length == 0) return false;
-        //if (movingPiecePutsKingInCheck(startRow, startCol, endRow, endCol)) return false;
+        // TODO: BUG BELOW
+        if (movingPiecePutsKingInCheck(startRow, startCol, endRow, endCol)) return false;
         return true;
     }
 
-    function isKingInCheck(chessPieceLookup) {
+    function isKingInCheck(currentChessBoardState) {
         // foreach opponent piece, check if it can move to king's position, if so, return true
-        let piecePositions = getChessPiecePositionsFromLookup(chessPieceLookup)
+        let piecePositions = currentChessBoardState.getChessPiecePositions()
+        let playerTurn = currentChessBoardState.getPlayerTurn();
         let [kingRow, kingCol, kingColor, kingPiece] = piecePositions.filter(([row, col, color, piece]) => color === playerTurn && piece === 'king')[0];
-        getChessPiecePositionsFromLookup(chessPieceLookup)
+        piecePositions
             .filter(([row, col, color, piece]) => color !== playerTurn)
             .filter(([row, col, color, piece]) => getValidMoves(row, col).filter(([r, c]) => r === kingRow && c === kingCol) > 0)
             .length > 0;
     }
 
     function movingPiecePutsKingInCheck(startRow, startCol, endRow, endCol) {
-        // TODO: Implement this
-        nextStepChessPieceLookup = JSON.parse(JSON.stringify(chessPieceLookup));
-        movePieceStateless(nextStepChessPieceLookup, startRow, startCol, endRow, endCol);
-        return isKingInCheck(nextStepChessPieceLookup);
+        let nextStepChessState = chessBoardState.deepCopyBoardState();
+        nextStepChessState = movePieceStateless(nextStepChessState, startRow, startCol, endRow, endCol);
+        let kingInCheck = isKingInCheck(nextStepChessState);
+        if (kingInCheck) {
+            console.log(`Checking if moving piece from (${startRow}, ${startCol}) to (${endRow}, ${endCol}) puts king in check`);
+        }
+        return kingInCheck;
     }
 
     function movePiece(startRow, startCol, endRow, endCol) {
-        console.log(`Moving piece from (${startRow}, ${startCol}) to (${endRow}, ${endCol})`);
-        if (!isValidMove(startRow, startCol, endRow, endCol)) {
-            console.log(`Invalid move (${startRow}, ${startCol}) => (${endRow}, ${endCol})`);
-            throw new Error(`Invalid move (${startRow}, ${startCol}) => (${endRow}, ${endCol})`);
-        }
-        return movePieceStateless(chessPieceLookup, startRow, startCol, endRow, endCol); 
+        return movePieceStateless(chessBoardState, startRow, startCol, endRow, endCol); 
     }
 
     function movePieceStateless(currentState, startRow, startCol, endRow, endCol) {
-        var [color, piece] = currentState[startRow][startCol];
-        currentState[endRow][endCol] = currentState[startRow][startCol];
-        currentState[startRow][startCol] = '';
-        if ((endRow === 0 || endRow === 7) && piece === 'pawn') {
-            currentState[endRow][endCol][1] = 'queen';
+        console.log(`Moving piece from (${startRow}, ${startCol}) to (${endRow}, ${endCol})`);
+        /*
+        if (!isValidMove(currentState, startRow, startCol, endRow, endCol)) {
+            console.log(`Invalid move (${startRow}, ${startCol}) => (${endRow}, ${endCol})`);
+            throw new Error(`Invalid move (${startRow}, ${startCol}) => (${endRow}, ${endCol})`);
         }
-        playerTurn = playerTurn === 'white' ? 'black' : 'white';
-        return getChessPiecePositionsFromLookup(currentState);
+        */
+        let chessPieceLookup = chessBoardState.getChessPieceLookup();
+        var [color, piece] = chessPieceLookup[startRow][startCol];
+        chessPieceLookup[endRow][endCol] = chessPieceLookup[startRow][startCol];
+        chessPieceLookup[startRow][startCol] = '';
+        if ((endRow === 0 || endRow === 7) && piece === 'pawn') {
+            chessPieceLookup[endRow][endCol][1] = 'queen';
+        }
+        currentState.changePlayerTurn();
+        return currentState;
     }
 
 
     function positionHasPiece(row, col) {
-        return chessPieceLookup[row][col] !== '';
+        return chessBoardState.positionHasPiece(row, col);
     }
 
     function isOnBoard(row, col) {
         return row >= 0 && col >= 0 && row <= 7 && col <= 7;
     }
 
-    function getRookMoves(row, col) {
+    function getRookMoves(currentState, row, col) {
         validMoves = [];
-
+        let chessPieceLookup = currentState.getChessPieceLookup();
+        let [color, _] = chessPieceLookup[row][col];
         [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(([rowDir, colDir]) => {
             let currRow = row + rowDir;
             let currCol = col + colDir;
             while (currRow >= 0 && currCol >= 0 && currRow <= 7 && currCol <= 7) {
                 if (positionHasPiece(currRow, currCol)) {
-                    if (chessPieceLookup[currRow][currCol][0] !== chessPieceLookup[row][col][0]) {
+                    if (chessPieceLookup[currRow][currCol][0] !== color) {
                         validMoves.push([currRow, currCol]);
                     }
                     break;
@@ -148,15 +194,16 @@ var ChessStateManager = function() {
         return validMoves;
     }
 
-    function getBishopMoves(row, col) {
+    function getBishopMoves(currentState, row, col) {
         let validMoves = [];
-
+        let chessPieceLookup = currentState.getChessPieceLookup();
+        let [color, _] = chessPieceLookup[row][col];
         [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([rowDir, colDir]) => {
             let currRow = row + rowDir;
             let currCol = col + colDir;
             while (currRow >= 0 && currCol >= 0 && currRow <= 7 && currCol <= 7) {
                 if (positionHasPiece(currRow, currCol)) {
-                    if (chessPieceLookup[currRow][currCol][0] !== chessPieceLookup[row][col][0]) {
+                    if (chessPieceLookup[currRow][currCol][0] !== color) {
                         validMoves.push([currRow, currCol]);
                     }
                     break;
@@ -171,80 +218,109 @@ var ChessStateManager = function() {
         return validMoves;
     }
 
-    function getQueenMoves(row, col) {
-        return getRookMoves(row, col).concat(getBishopMoves(row, col));
+    function getQueenMoves(currentState, row, col) {
+        return getRookMoves(currentState, row, col).concat(getBishopMoves(currentState, row, col));
+    }
+
+    function getKingMoves(currentState, row, col) {
+        validMoves = [];
+        let chessPieceLookup = currentState.getChessPieceLookup();
+        let [color, _] = chessPieceLookup[row][col];
+        [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([rowDir, colDir]) => {
+            let currRow = row + rowDir;
+            let currCol = col + colDir;
+            if (currRow >= 0 && currCol >= 0 && currRow <= 7 && currCol <= 7) {
+                if (!positionHasPiece(currRow, currCol) || chessPieceLookup[currRow][currCol][0] !== color) {
+                    validMoves.push([currRow, currCol]);
+                }
+            }
+        });
+        return validMoves;
+    }
+
+    function getPawnMoves(currentState, row, col) {
+        validMoves = [];
+        let chessPieceLookup = currentState.getChessPieceLookup();
+        let [color, _] = chessPieceLookup[row][col];
+
+        rowDir = (color === 'white') ? 1 : -1;
+        let currRow = row + rowDir;
+        if (!positionHasPiece(currRow, col)) {
+            validMoves.push([currRow, col]);
+            if ((color == 'white' && row == 1) || (color == 'black' && row == 6)) {
+                if (!positionHasPiece(row + (rowDir*2), col)) {
+                    validMoves.push([row + (rowDir*2), col]);
+                }
+            }
+        }
+
+        // capture logic
+        currRow = row + rowDir;
+        [-1, 1].forEach((colDir) => {
+            let currCol = col + colDir;
+            if (isOnBoard(currRow, currCol) && positionHasPiece(currRow, currCol)) {
+                if (chessPieceLookup[currRow][currCol][0] !== color) {
+                    validMoves.push([currRow, currCol]);
+                }
+            }
+        });
+       
+        return validMoves;
+    }
+
+    function getKnightMoves(currentState, row, col) {
+        validMoves = [];
+        let chessPieceLookup = currentState.getChessPieceLookup();
+        let [color, _] = chessPieceLookup[row][col];
+        [[-2, -1], [-2, 1], [2, -1], [2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2]].forEach(([rowDir, colDir]) => {
+            let currRow = row + rowDir;
+            let currCol = col + colDir;
+            if (isOnBoard(currRow, currCol)) {
+                if (!positionHasPiece(currRow, currCol) || chessPieceLookup[currRow][currCol][0] !== color) {
+                    validMoves.push([currRow, currCol]);
+                }
+            }
+        });
+        return validMoves;
     }
 
     function getValidMoves(row, col) {
+        return getValidMovesStateless(chessBoardState, row, col);
+    }
+    function getValidMovesStateless(currentState, row, col) {
+        let chessPieceLookup = currentState.getChessPieceLookup();
         let [color, piece] = chessPieceLookup[row][col];
         validMoves = [];
         // 'rook', 'knight', 'bishop', 'queen', 'king', 'pawn';
-        if (piece === 'rook') {
-           validMoves = getRookMoves(row, col); 
-        } else if (piece === 'knight') {
-            [[-2, -1], [-2, 1], [2, -1], [2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2]].forEach(([rowDir, colDir]) => {
-                let currRow = row + rowDir;
-                let currCol = col + colDir;
-                if (isOnBoard(currRow, currCol)) {
-                    if (!positionHasPiece(currRow, currCol) || chessPieceLookup[currRow][currCol][0] !== color) {
-                        validMoves.push([currRow, currCol]);
-                    }
-                }
-
-            });
-        } else if (piece === 'bishop') {
-            validMoves = getBishopMoves(row, col); 
-        } else if (piece === 'queen') {
-            validMoves = getQueenMoves(row, col);
-        } else if (piece === 'king') {
-            [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([rowDir, colDir]) => {
-                let currRow = row + rowDir;
-                let currCol = col + colDir;
-                if (currRow >= 0 && currCol >= 0 && currRow <= 7 && currCol <= 7) {
-                    if (!positionHasPiece(currRow, currCol) || chessPieceLookup[currRow][currCol][0] !== color) {
-                        validMoves.push([currRow, currCol]);
-                    }
-                }
-            });
-        } else if (piece === 'pawn') {
-            rowDir = (color === 'white') ? 1 : -1;
-            let currRow = row + rowDir;
-            if (!positionHasPiece(currRow, col)) {
-                validMoves.push([currRow, col]);
-                if ((color == 'white' && row == 1) || (color == 'black' && row == 6)) {
-                    if (!positionHasPiece(row + (rowDir*2), col)) {
-                        validMoves.push([row + (rowDir*2), col]);
-                    }
-                }
-            }
-
-            // capture logic
-            currRow = row + rowDir;
-            [-1, 1].forEach((colDir) => {
-                let currCol = col + colDir;
-                if (isOnBoard(currRow, currCol) && positionHasPiece(currRow, currCol)) {
-                    if (chessPieceLookup[currRow][currCol][0] !== color) {
-                        validMoves.push([currRow, currCol]);
-                    }
-                }
-            });
+        pieceMovesFunc = {
+            'rook': getRookMoves,
+            'knight': getKnightMoves,
+            'bishop': getBishopMoves,
+            'queen': getQueenMoves,
+            'king': getKingMoves,
+            'pawn': getPawnMoves
         }
+        validMoves = pieceMovesFunc[piece](currentState, row, col);
 
         return validMoves.filter(([row, col]) => (
             row >= 0 && row < 8 && col >= 0 && col < 8 && 
             (!positionHasPiece(row, col) || chessPieceLookup[row][col][0] !== color)));
     }
 
+    function getChessBoardState() {
+        return chessBoardState;
+    }
+
     function getChessPiecePositions() {
-        return getChessPiecePositionsFromLookup(chessPieceLookup);
+        return chessBoardState.getChessPiecePositions();
     }
 
     function getChessPieceLookup() {
-        return chessPieceLookup;
+        return chessBoardState.getChessPieceLookup();
     }
 
     function getPlayerTurn() {
-        return playerTurn;
+        return chessBoardState.getPlayerTurn();
     }
 
     return {
@@ -252,9 +328,9 @@ var ChessStateManager = function() {
         movePiece: movePiece,
         getValidMoves: getValidMoves,
         isValidMove: isValidMove,
+        getChessBoardState: getChessBoardState,
         getChessPiecePositions: getChessPiecePositions,
         getChessPieceLookup: getChessPieceLookup,
-        getChessPiecePositionsFromLookup: getChessPiecePositionsFromLookup,
         getPlayerTurn: getPlayerTurn,
     };
 };
