@@ -131,12 +131,6 @@ var BoardManager = function() {
             showValidMovesForPiece(row, col);
         } else {
             clearSelection();
-            /*
-            selectedPiecePosition = null;
-            availableMoves = [];
-            drawChessboard();
-            return; 
-            */
         }
     }
 
@@ -147,6 +141,7 @@ var BoardManager = function() {
         availableMoves = getValidMoves(row, col);
         console.log(`Valid moves: ${availableMoves}`);
         drawChessboard(); 
+        document.getElementById('messageArea').innerHTML = '';
     }
 
 
@@ -156,12 +151,17 @@ var BoardManager = function() {
         selectedPiecePosition = null;
         availableMoves = [];
         drawChessboard();
+        if (chessBoard.isKingInCheck()) {
+            console.log('King in check!');
+            document.getElementById('messageArea').innerHTML = 'King in check!';
+        }
     }
 
     function clearSelection() {
         selectedPiecePosition = null;
         availableMoves = [];
         drawChessboard();
+        document.getElementById('messageArea').innerHTML = '';
     }
 
     function movePieceStateless(currentState, startRow, startCol, endRow, endCol) {
@@ -195,7 +195,7 @@ var BoardManager = function() {
         movePiece: movePiece,
         movePieceStateless: movePieceStateless,
         getValidMoves: getValidMoves,
-        isValidMove: chessBoard.isValidMove,
+        isValidMove: isValidMove,
         getChessPiecePositions: getChessPiecePositions,
         getChessPieceLookup: getChessPieceLookup,
         getChessBoard: getChessBoard,
