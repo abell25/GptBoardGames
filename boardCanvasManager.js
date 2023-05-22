@@ -31,7 +31,6 @@ var BoardManager = function() {
     var chessBoard = ChessStateManager();
     var selectedPiecePosition = null;
     var availableMoves = [];
-    var blackIsAI = true;
     var chatGptManager = ChatGptManager();
 
     var canvas = document.getElementById('boardgameCanvas'),
@@ -126,22 +125,28 @@ var BoardManager = function() {
     }
 
     function canvasClickListener(event) {
-        console.log(`Clicked at (${event.offsetX}, ${event.offsetY})`);
-        let [row, col] = mouseCoordsToBoardCoords(event.offsetX, event.offsetY);
+        if (!chessBoard.isCheckmate()) {
+            console.log(`Clicked at (${event.offsetX}, ${event.offsetY})`);
+            let [row, col] = mouseCoordsToBoardCoords(event.offsetX, event.offsetY);
 
-        if (userClickedAvailableMove(row, col)) {
-            movePiece(selectedPiecePosition[0], selectedPiecePosition[1], row, col);
-            if (blackIsAI) {
-                getChatGptMove();
+            if (userClickedAvailableMove(row, col)) {
+                movePiece(selectedPiecePosition[0], selectedPiecePosition[1], row, col);
+                if (useChatGptAi()) {
+                    getChatGptMove();
+                }
+            } else if(userClickedOwnPiece(row, col)) {
+                showValidMovesForPiece(row, col);
+            } else {
+                clearSelection();
             }
-        } else if(userClickedOwnPiece(row, col)) {
-            showValidMovesForPiece(row, col);
-        } else {
-            clearSelection();
         }
     }
 
-    function getChatGptMove(failingMoves=[]) {
+    function useChatGptAi() {
+        return document.getElementById('useChatGptAi').checked;
+    }
+
+    function getChatGptMove(failingMoves=[], numFailures = 0) {
         showLoadingIcon();
         return chatGptManager.getMoveAndResponse(chessBoard, failingMoves).then((moveAndResponse) => {
             let move = moveAndResponse['move'];
@@ -153,18 +158,29 @@ var BoardManager = function() {
             } else {
                 console.log(`Chatgpt picked an Invalid move: ${move}`);
                 failingMoves.push(move);
-                if (failingMoves.length < NUM_AI_RETRIES) {
+                if (numFailures < NUM_AI_RETRIES) {
                     console.log(`Retrying...`);
-                    return getChatGptMove(failingMoves);
+                    return getChatGptMove(failingMoves, numFailures+1);
                 } else {
                     throw new Error(`Chatgpt picked an Invalid move ${NUM_AI_RETRIES} times in a row`);
                     showMessage(`Chatgpt picked an Invalid move ${NUM_AI_RETRIES} times in a row, EXITING....`);
                 }
             }
+        }).catch((error) => {
+            console.log(`Chatgpt raised an error: ${error}`);
+            if (numFailures < NUM_AI_RETRIES) {
+                console.log(`Retrying...`);
+                return getChatGptMove(failingMoves, numFailures+1);
+            } else {
+                throw new Error(`Chatgpt picked an Invalid move ${NUM_AI_RETRIES} times in a row`);
+                showMessage(`Chatgpt picked an Invalid move ${NUM_AI_RETRIES} times in a row, EXITING....`);
+            }
+
         });
     }
 
     function showMessage(message) {
+        if (message) { console.log(`showMessage: ${message}`); }
         document.getElementById('messageArea').innerHTML = message;
     }
     function clearMessage() { showMessage(''); }
@@ -199,8 +215,11 @@ var BoardManager = function() {
         availableMoves = [];
         drawChessboard();
         if (chessBoard.isKingInCheck()) {
-            console.log('King in check!');
             showMessage('King in check!');
+        }
+        if (chessBoard.isCheckmate()) {
+            let winner = chessBoard.getPlayerTurn() === 'white' ? 'black' : 'white';
+            showMessage(`Checkmate! ${winner} wins!`);
         }
     }
 

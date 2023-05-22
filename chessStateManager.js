@@ -136,6 +136,15 @@ var ChessStateManager = function() {
         return allValidMoves;
     }
 
+    function getAllValidMovesWithPieceNames() {
+        let piecePositions = chessBoardState.getChessPiecePositions();
+        let allValidMoves = piecePositions.flatMap(([row, col, color, piece]) => {
+            let validMoves = getValidMoves(row, col);
+            return validMoves.map(([r, c]) => [row, col, r, c, color, piece]);
+        });
+        return allValidMoves;
+    }
+
     function isKingInCheck() {
         return isKingInCheckStateless(chessBoardState);
     }
@@ -166,6 +175,10 @@ var ChessStateManager = function() {
             console.log(`ZZZZ Checking if moving piece from (${startRow}, ${startCol}) to (${endRow}, ${endCol}) puts king in check`);
         }
         return kingInCheck;
+    }
+
+    function isCheckmate() {
+        return getAllValidMoves().length === 0;
     }
 
     function movePiece(startRow, startCol, endRow, endCol) {
@@ -351,5 +364,7 @@ var ChessStateManager = function() {
         getPlayerTurn: getPlayerTurn,
         isKingInCheck: isKingInCheck,
         getAllValidMoves: getAllValidMoves,
+        getAllValidMovesWithPieceNames: getAllValidMovesWithPieceNames,
+        isCheckmate: isCheckmate,
     };
 };
