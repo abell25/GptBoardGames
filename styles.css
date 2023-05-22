@@ -1,3 +1,68 @@
 canvas {
     border: 1px solid black;
   }
+
+#chatArea {
+    width: 400px;
+}
+
+#chatLog {
+    border: 1px solid black;
+    overflow: scroll;
+    height: 100px;
+    width: 400px;
+}
+
+#playerTurnDisplay {
+    margin-bottom: 10px;
+}
+
+#chatAreaHeader {
+    border: 1px solid black;
+    /*height: 20px;*/
+    width: 100%;
+    padding: 5px 0px 5px 0px;
+    background-color: rgb(28, 27, 27);
+    color: rgb(220, 220, 220);
+    font-size: 24px;
+}
+
+.chatMessage {
+    border: 1px solid rgb(67, 6, 223);
+    background-color: rgb(165, 143, 219);
+    position: relative;
+    display: block;
+    margin: 5px 5px 5px 5px;
+    padding: 5px 5px 5px 5px;
+}
+
+
+/* Rotating loading icon logic */
+
+.loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 50px;
+  }
+  
+  .loading-icon {
+    width: 40px;
+    height: 40px;
+    background-image: url('assets/chatGptIconPng.png');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: cover;
+    border-radius: 50%;
+    animation: spin 2.5s infinite linear;
+  }
+  
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+  

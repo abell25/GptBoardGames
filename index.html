@@ -1,23 +1,35 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Chess</title>
+  <title>Chess with ChatGPT</title>
   <link rel="stylesheet" type="text/css" href="styles.css">
 </head>
 <body>
-    <h1>Chess</h1>
+    <h1>Chess with ChatGpt</h1>
     <div id="playerTurnDisplay">
         player turn: <span id="playerTurn"></span>
     </div>
   <canvas id="boardgameCanvas" width="400" height="400"></canvas>
   <br/>
+  <!--
+    Simple interface for entering moves manually.
   <label for="moveStr"> Enter move (format: row1,col1,row2,col2)</label>
   <input type="text" id="moveStr"></textbox>
   <input type="button" id="moveButton" value="Move!">
+  -->
   <div id="messageArea">
     <span id="message"></span>
   </div>
+  <div id="chatArea">
+    <div id="chatAreaHeader">Chat History</div>
+    <div id="chatLog"></div>
+    <div class="loading-container">
+        <div id="loadingIcon" class="loading-icon" style="display:none;"></div>
+    </div>
+  </div>
+  
   <script src="chessStateManager.js"></script>
+  <script src="chatGptManager.js"></script>
   <script src="boardCanvasManager.js"></script>
   <script src="gameManager.js"></script>
   <script src="script.js"></script>

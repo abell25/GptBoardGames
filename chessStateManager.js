@@ -127,6 +127,15 @@ var ChessStateManager = function() {
         return validMoves;
     }
 
+    function getAllValidMoves() {
+        let piecePositions = chessBoardState.getChessPiecePositions();
+        let allValidMoves = piecePositions.flatMap(([row, col, color, piece]) => {
+            let validMoves = getValidMoves(row, col);
+            return validMoves.map(([r, c]) => [row, col, r, c]);
+        });
+        return allValidMoves;
+    }
+
     function isKingInCheck() {
         return isKingInCheckStateless(chessBoardState);
     }
@@ -312,11 +321,6 @@ var ChessStateManager = function() {
         }
         validMoves = pieceMovesFunc[piece](currentState, row, col);
         return validMoves;
-        /* 
-        return validMoves.filter(([row, col]) => (
-            row >= 0 && row < 8 && col >= 0 && col < 8 && 
-            (!positionHasPiece(row, col) || chessPieceLookup[row][col][0] !== color)));
-        */
     }
 
     function getChessBoardState() {
@@ -346,5 +350,6 @@ var ChessStateManager = function() {
         getChessPieceLookup: getChessPieceLookup,
         getPlayerTurn: getPlayerTurn,
         isKingInCheck: isKingInCheck,
+        getAllValidMoves: getAllValidMoves,
     };
 };

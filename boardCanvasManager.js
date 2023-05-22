@@ -4,6 +4,8 @@ const spriteHeight = 64; // Height of the image on the sprite sheet
 const spriteWidthOffset = -5;
 const spriteHeightOffset = -5;
 
+const NUM_AI_RETRIES = 3;
+
   
 const chessPieceSpriteLocations = {
     'white': {
@@ -29,6 +31,8 @@ var BoardManager = function() {
     var chessBoard = ChessStateManager();
     var selectedPiecePosition = null;
     var availableMoves = [];
+    var blackIsAI = true;
+    var chatGptManager = ChatGptManager();
 
     var canvas = document.getElementById('boardgameCanvas'),
         context = canvas.getContext('2d');
@@ -92,13 +96,13 @@ var BoardManager = function() {
         if (selectedPiecePosition) drawHighlightedSquares([selectedPiecePosition], '#77FF77'); 
         if (availableMoves.length > 0) drawHighlightedSquares(availableMoves, '#FF7777');
         drawChessPieces(currentState);
-
-        document.getElementById('playerTurn').innerHTML = chessBoard.getPlayerTurn();
+        showPlayerTurn(chessBoard.getPlayerTurn());
     }
 
 
     function initialize() {
         chessPieceLookup = chessBoard.initialize();
+        chatGptManager.initialize();
         drawChessboard();
         
         canvas.addEventListener('click', canvasClickListener);
@@ -127,11 +131,54 @@ var BoardManager = function() {
 
         if (userClickedAvailableMove(row, col)) {
             movePiece(selectedPiecePosition[0], selectedPiecePosition[1], row, col);
+            if (blackIsAI) {
+                getChatGptMove();
+            }
         } else if(userClickedOwnPiece(row, col)) {
             showValidMovesForPiece(row, col);
         } else {
             clearSelection();
         }
+    }
+
+    function getChatGptMove(failingMoves=[]) {
+        showLoadingIcon();
+        return chatGptManager.getMoveAndResponse(chessBoard, failingMoves).then((moveAndResponse) => {
+            let move = moveAndResponse['move'];
+            if (chessBoard.isValidMove(move[0], move[1], move[2], move[3])) {
+                let message = moveAndResponse['message'];
+                movePiece(move[0], move[1], move[2], move[3]);
+                showChatMessage(message);
+                hideLoadingIcon();
+            } else {
+                console.log(`Chatgpt picked an Invalid move: ${move}`);
+                failingMoves.push(move);
+                if (failingMoves.length < NUM_AI_RETRIES) {
+                    console.log(`Retrying...`);
+                    return getChatGptMove(failingMoves);
+                } else {
+                    throw new Error(`Chatgpt picked an Invalid move ${NUM_AI_RETRIES} times in a row`);
+                    showMessage(`Chatgpt picked an Invalid move ${NUM_AI_RETRIES} times in a row, EXITING....`);
+                }
+            }
+        });
+    }
+
+    function showMessage(message) {
+        document.getElementById('messageArea').innerHTML = message;
+    }
+    function clearMessage() { showMessage(''); }
+    function showPlayerTurn(playerTurn) {
+        document.getElementById('playerTurn').innerHTML = playerTurn;
+    }
+
+    function showChatMessage(message) {
+        let span = document.createElement('span');
+        span.className = 'chatMessage';
+        span.innerHTML = message;
+        let chatLog = document.getElementById('chatLog');
+        chatLog.appendChild(span);
+        chatLog.scrollTo(0, chatLog.scrollHeight);
     }
 
     function showValidMovesForPiece(row, col) {
@@ -141,7 +188,7 @@ var BoardManager = function() {
         availableMoves = getValidMoves(row, col);
         console.log(`Valid moves: ${availableMoves}`);
         drawChessboard(); 
-        document.getElementById('messageArea').innerHTML = '';
+        clearMessage();
     }
 
 
@@ -153,7 +200,7 @@ var BoardManager = function() {
         drawChessboard();
         if (chessBoard.isKingInCheck()) {
             console.log('King in check!');
-            document.getElementById('messageArea').innerHTML = 'King in check!';
+            showMessage('King in check!');
         }
     }
 
@@ -161,7 +208,7 @@ var BoardManager = function() {
         selectedPiecePosition = null;
         availableMoves = [];
         drawChessboard();
-        document.getElementById('messageArea').innerHTML = '';
+        clearMessage();
     }
 
     function movePieceStateless(currentState, startRow, startCol, endRow, endCol) {
@@ -186,6 +233,14 @@ var BoardManager = function() {
 
     function isValidMove(startRow, startCol, endRow, endCol) {
         return chessBoard.isValidMove(startRow, startCol, endRow, endCol);
+    }
+
+    function showLoadingIcon() {
+        document.getElementById('loadingIcon').style.display = 'block';
+    }
+
+    function hideLoadingIcon() {
+        document.getElementById('loadingIcon').style.display = 'none';
     }
 
     return {
