@@ -1,5 +1,5 @@
-BOARD_TILE_COLOR = 'brown';
-WALL_COLOR = 'black';
+BOARD_TILE_COLOR = '#cccccc';
+WALL_COLOR = 'rgb(100, 200, 250)';
 NUM_PIECES_PER_PLAYER = 10;
 
 var BoardManager = function() {
