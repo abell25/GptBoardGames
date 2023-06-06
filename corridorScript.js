@@ -1,0 +1,4 @@
+(() => {
+    boardManager = BoardManager();
+    boardManager.initialize();
+  })();
