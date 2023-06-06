@@ -70,9 +70,10 @@ var BoardManager = function() {
         }
     }
 
-    function drawPawns(player1Position, player2Position) {
-        drawPawn(player1Position, 'white');
-        drawPawn(player2Position, 'black');
+    function drawPawns(pawns, playerColors) {
+        for(let i=0; i<pawns.length; i++) {
+            drawPawn(pawns[i], playerColors[i]);
+        }
     }
 
     function drawPawn(playerPosition, playerColor) {
@@ -149,24 +150,30 @@ var BoardManager = function() {
     }
 
     function canvasClickListener(event) {
+        var gameState = corridorStateManager.getGameState();
+        if (gameState.isGameOver()) { return; }
         console.log(`Clicked at (${event.offsetX}, ${event.offsetY})`);
         let [row, col, clickedOnSquare, clickedOnSpace] = mouseCoordsToBoardCoords(event.offsetX, event.offsetY);
-
+        let currentPlayer = gameState.currentPlayer;
+        let currentPlayerColor = gameState.playerColors[currentPlayer];
         if (clickedOnSquare) {
-            let currentState = corridorStateManager.getGameState();
-            let [playerRow, playerCol] = currentState.playerPawn[currentState.currentPlayer];
+            let [playerRow, playerCol] = gameState.playerPawn[currentPlayer];
             if (row === playerRow && col === playerCol) {
                 selectedPiecePosition = [row, col];
                 selectedWallPosition = null;
-                availableMoves = corridorStateManager.getValidMoves(row, col);
-                draw();
+                availableMoves = corridorStateManager.getValidMoves(gameState, row, col);
+                draw(gameState);
                 drawHighlightedSquares(availableMoves);
             } else if (selectedPiecePosition && availableMoves.some(([r, c]) => r === row && c === col)) {
                 corridorStateManager.movePawn(row, col);
                 selectedPiecePosition = null;
                 selectedWallPosition = null;
                 availableMoves = [];
-                draw();
+                draw(gameState);
+
+                if (gameState.isGameOver()) {
+                    showMessage(`Player ${currentPlayerColor} wins!`);
+                }
             }
         } else if (clickedOnSpace) {
             if (selectedWallPosition && selectedWallPosition[0] === row && selectedWallPosition[1] === col && selectedWallPosition[2] === clickedOnSpace) {
@@ -174,36 +181,55 @@ var BoardManager = function() {
                 selectedPiecePosition = null;
                 selectedWallPosition = null;
                 availableMoves = [];
-                draw();
+                draw(gameState);
             } else {
-                selectedPiecePosition = null;
-                selectedWallPosition = [row, col, clickedOnSpace];
-                availableMoves = [];
-                draw();
-                drawHighlightedWall([[row, col, clickedOnSpace]]);
+                if (corridorStateManager.canPlaceWall(row, col, clickedOnSpace)) {
+                    selectedPiecePosition = null;
+                    selectedWallPosition = [row, col, clickedOnSpace];
+                    availableMoves = [];
+                    draw(gameState);
+                    drawHighlightedWall([[row, col, clickedOnSpace]]);
+                } else {
+                    selectedPiecePosition = null;
+                    selectedWallPosition = null;
+                    availableMoves = [];
+                    draw(gameState);
+                }
             }
         } else {
             selectedPiecePosition = null;
             selectedWallPosition = null;
             availableMoves = [];
-            draw();
+            draw(gameState);
         }
     }
 
-    function draw() {
+    function draw(gameState) {
         clearBoard();
-        let pawns = corridorStateManager.getGameState().playerPawn;
-        let placedPieces = corridorStateManager.getGameState().playerPlacedPieces;
+        let pawns = gameState.playerPawn;
+        let placedPieces = gameState.playerPlacedPieces;
+        let playerColors = gameState.playerColors;
         drawBoardSquares();
         drawUnusedBoardPieces(placedPieces[0], placedPieces[1]);
-        drawPawns(pawns[0], pawns[1]);
-        drawWalls(corridorStateManager.getGameState().placedPieces);
-        document.getElementById('playerTurn').innerHTML = (corridorStateManager.getGameState().currentPlayer + 1);
+        drawPawns(pawns, playerColors);
+        drawWalls(gameState.placedPieces);
+        showPlayerTurn(gameState);
     }
 
     function initialize() {
-        draw(); 
+        let gameState = corridorStateManager.getGameState();
+        draw(gameState); 
         canvas.addEventListener('click', canvasClickListener);
+    }
+
+    function showMessage(message) {
+        if (message) { console.log(`showMessage: ${message}`); }
+        document.getElementById('messageArea').innerHTML = message;
+    }
+    function clearMessage() { showMessage(''); }
+    function showPlayerTurn(gameState) {
+        let playerTurn = gameState.playerColors[gameState.currentPlayer];
+        document.getElementById('playerTurn').innerHTML = playerTurn;
     }
 
     return {
